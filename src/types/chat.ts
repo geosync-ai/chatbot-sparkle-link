@@ -8,14 +8,6 @@ export interface ChatMessage {
   timestamp: Date;
 }
 
-export interface DatabaseConfig {
-  type: string;
-  projectId: string;
-  apiKey: string;
-  databaseURL: string;
-  [key: string]: any; // Allow additional properties for different database types
-}
-
 export interface ChatOptions {
   initialMessage?: string;
   modelName?: string;
@@ -38,7 +30,6 @@ export interface ChatOptions {
     type: "url" | "text" | "github";
     content: string;
   }[];
-  dbConfig?: DatabaseConfig;
 }
 
 export interface EmbedOptions {
