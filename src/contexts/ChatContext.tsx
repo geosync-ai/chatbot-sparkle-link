@@ -1,8 +1,7 @@
-
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { ChatMessage, ChatOptions, ChatRole } from "@/types/chat";
 import { generateChatCompletion, processKnowledgeBase } from "@/utils/api";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "sonner";
 
 interface ChatContextProps {
   messages: ChatMessage[];
@@ -26,7 +25,6 @@ export const ChatProvider: React.FC<{
   const [apiKey, setApiKey] = useState<string>("");
   const [options, setOptions] = useState<ChatOptions>(initialOptions);
 
-  // Load API key from localStorage
   useEffect(() => {
     const savedApiKey = localStorage.getItem("openrouter_api_key");
     if (savedApiKey) {
@@ -34,14 +32,12 @@ export const ChatProvider: React.FC<{
     }
   }, []);
 
-  // Save API key to localStorage when changed
   useEffect(() => {
     if (apiKey) {
       localStorage.setItem("openrouter_api_key", apiKey);
     }
   }, [apiKey]);
 
-  // Set initial welcome message
   useEffect(() => {
     if (options.initialMessage && messages.length === 0) {
       const welcomeMessage: ChatMessage = {
@@ -60,7 +56,6 @@ export const ChatProvider: React.FC<{
 
   const clearMessages = useCallback(() => {
     setMessages([]);
-    // Add welcome message back if it exists
     if (options.initialMessage) {
       const welcomeMessage: ChatMessage = {
         id: Date.now().toString(),
@@ -81,7 +76,6 @@ export const ChatProvider: React.FC<{
         return;
       }
 
-      // Add user message
       const userMessage: ChatMessage = {
         id: Date.now().toString(),
         role: "user",
@@ -93,15 +87,13 @@ export const ChatProvider: React.FC<{
       setIsLoading(true);
 
       try {
-        // Convert messages to the format expected by the API
         const apiMessages = messages
-          .slice(-10) // Limit context window for efficiency
+          .slice(-10)
           .map((msg) => ({
             role: msg.role,
             content: msg.content,
           }));
 
-        // Add system prompt if provided
         if (options.systemPrompt) {
           apiMessages.unshift({
             role: "system",
@@ -109,33 +101,28 @@ export const ChatProvider: React.FC<{
           });
         }
 
-        // Add user message to API payload
         apiMessages.push({
           role: "user",
           content,
         });
 
-        // Process knowledge base if available
         let contextInfo = null;
         if (options.knowledgeBase && options.knowledgeBase.length > 0) {
           contextInfo = await processKnowledgeBase(options.knowledgeBase, content);
           
           if (contextInfo) {
-            // Add context to the last user message
             const lastIndex = apiMessages.length - 1;
             apiMessages[lastIndex].content = 
               `${content}\n\nAvailable context information:\n${contextInfo}`;
           }
         }
 
-        // Get response from API
         const responseContent = await generateChatCompletion(
           apiMessages,
           apiKey,
           options.modelName
         );
 
-        // Add assistant message
         const assistantMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: "assistant",
@@ -147,7 +134,6 @@ export const ChatProvider: React.FC<{
       } catch (error) {
         console.error("Error sending message:", error);
         
-        // Add error message
         const errorMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: "assistant",

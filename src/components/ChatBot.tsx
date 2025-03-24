@@ -22,7 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 // Internal ChatBot component that uses the context
 const ChatBotInternal: React.FC = () => {
-  const { messages, isLoading, sendMessage, apiKey, setApiKey, options } = useChat();
+  const { messages, isLoading, sendMessage, apiKey, setApiKey, options, setOptions, clearMessages } = useChat();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isMinimized, setIsMinimized] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
@@ -65,7 +65,7 @@ const ChatBotInternal: React.FC = () => {
                   Configure System Prompt
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={clearMessages}>
                   Clear Conversation
                 </DropdownMenuItem>
               </DropdownMenuContent>

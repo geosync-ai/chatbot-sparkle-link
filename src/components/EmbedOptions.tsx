@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Check, Clipboard, Code } from "lucide-react";
 import { 
@@ -15,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmbedOptions as EmbedOptionsType } from "@/types/chat";
 import { generateEmbedCode, copyToClipboard } from "@/utils/embedCode";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "sonner";
 
 interface EmbedOptionsProps {
   trigger: React.ReactNode;
