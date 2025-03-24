@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ChatProvider, useChat } from "@/contexts/ChatContext";
 import { ChatBotProps } from "@/types/chat";
-import { X, Minimize, Maximize, MessageSquare, Settings, Share2 } from "lucide-react";
+import { X, Minimize, Maximize, MessageSquare, Settings, Share2, Database, FileText, Globe, Github } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ChatMessage, { TypingIndicator } from "@/components/ChatMessage";
@@ -14,11 +14,16 @@ import {
   DropdownMenuContent, 
   DropdownMenuItem, 
   DropdownMenuSeparator, 
-  DropdownMenuTrigger 
+  DropdownMenuTrigger,
+  DropdownMenuGroup,
+  DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { toast } from "sonner";
 
 // Internal ChatBot component that uses the context
 const ChatBotInternal: React.FC = () => {
@@ -27,6 +32,20 @@ const ChatBotInternal: React.FC = () => {
   const [isMinimized, setIsMinimized] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState(options.systemPrompt || "");
+  const [activeConfigTab, setActiveConfigTab] = useState("system");
+  
+  // Knowledge base state
+  const [knowledgeBase, setKnowledgeBase] = useState(options.knowledgeBase || []);
+  const [newKnowledgeType, setNewKnowledgeType] = useState<"url" | "text" | "github">("url");
+  const [newKnowledgeContent, setNewKnowledgeContent] = useState("");
+  
+  // Database configuration state
+  const [dbConfig, setDbConfig] = useState({
+    type: "firebase",
+    projectId: "",
+    apiKey: "",
+    databaseURL: ""
+  });
   
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -34,6 +53,41 @@ const ChatBotInternal: React.FC = () => {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
+
+  const handleAddKnowledgeBase = () => {
+    if (!newKnowledgeContent.trim()) {
+      toast.error("Please enter content for the knowledge base");
+      return;
+    }
+    
+    const updatedKnowledgeBase = [
+      ...knowledgeBase,
+      { type: newKnowledgeType, content: newKnowledgeContent }
+    ];
+    
+    setKnowledgeBase(updatedKnowledgeBase);
+    setNewKnowledgeContent("");
+    
+    // Update the global options
+    setOptions({ knowledgeBase: updatedKnowledgeBase });
+    toast.success(`Added ${newKnowledgeType} to knowledge base`);
+  };
+  
+  const handleRemoveKnowledgeBase = (index: number) => {
+    const updatedKnowledgeBase = knowledgeBase.filter((_, i) => i !== index);
+    setKnowledgeBase(updatedKnowledgeBase);
+    setOptions({ knowledgeBase: updatedKnowledgeBase });
+    toast.success("Removed from knowledge base");
+  };
+  
+  const handleSaveDbConfig = () => {
+    // In a real implementation, this would connect to the actual database service
+    // For now, we just save the configuration
+    setOptions({ 
+      dbConfig: dbConfig
+    });
+    toast.success(`${dbConfig.type} configuration saved!`);
+  };
   
   return (
     <div className={cn(
@@ -61,8 +115,23 @@ const ChatBotInternal: React.FC = () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem onClick={() => setIsConfigOpen(true)}>
+                <DropdownMenuItem onClick={() => {
+                  setActiveConfigTab("system");
+                  setIsConfigOpen(true);
+                }}>
                   Configure System Prompt
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => {
+                  setActiveConfigTab("knowledge");
+                  setIsConfigOpen(true);
+                }}>
+                  Manage Knowledge Base
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => {
+                  setActiveConfigTab("database");
+                  setIsConfigOpen(true);
+                }}>
+                  Database Configuration
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={clearMessages}>
@@ -169,39 +238,175 @@ const ChatBotInternal: React.FC = () => {
         </>
       )}
       
-      {/* System Prompt Configuration Dialog */}
+      {/* Configuration Dialog */}
       <Dialog open={isConfigOpen} onOpenChange={setIsConfigOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Configure System Prompt</DialogTitle>
+            <DialogTitle>Configure AI Assistant</DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="system-prompt">System Prompt</Label>
-              <Textarea
-                id="system-prompt"
-                placeholder="Enter instructions for the AI assistant..."
-                value={systemPrompt}
-                onChange={(e) => setSystemPrompt(e.target.value)}
-                className="min-h-[150px]"
-              />
-              <p className="text-sm text-gray-500">
-                The system prompt helps guide the AI's behavior and responses.
-              </p>
-            </div>
+          <Tabs defaultValue={activeConfigTab} value={activeConfigTab} onValueChange={setActiveConfigTab}>
+            <TabsList className="grid grid-cols-3 mb-4">
+              <TabsTrigger value="system">System Prompt</TabsTrigger>
+              <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
+              <TabsTrigger value="database">Database</TabsTrigger>
+            </TabsList>
             
-            <div className="flex justify-end">
-              <Button 
-                onClick={() => {
-                  setOptions({ systemPrompt });
-                  setIsConfigOpen(false);
-                }}
-              >
-                Save Changes
-              </Button>
-            </div>
-          </div>
+            {/* System Prompt Tab */}
+            <TabsContent value="system" className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="system-prompt">System Prompt</Label>
+                <Textarea
+                  id="system-prompt"
+                  placeholder="Enter instructions for the AI assistant..."
+                  value={systemPrompt}
+                  onChange={(e) => setSystemPrompt(e.target.value)}
+                  className="min-h-[150px]"
+                />
+                <p className="text-sm text-gray-500">
+                  The system prompt helps guide the AI's behavior and responses.
+                </p>
+              </div>
+              
+              <div className="flex justify-end">
+                <Button 
+                  onClick={() => {
+                    setOptions({ systemPrompt });
+                    toast.success("System prompt updated");
+                  }}
+                >
+                  Save Changes
+                </Button>
+              </div>
+            </TabsContent>
+            
+            {/* Knowledge Base Tab */}
+            <TabsContent value="knowledge" className="space-y-4">
+              <div className="space-y-4">
+                <div className="flex flex-col gap-2">
+                  <Label>Current Knowledge Base</Label>
+                  {knowledgeBase.length === 0 ? (
+                    <p className="text-sm text-gray-500">No knowledge base entries. Add one below.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {knowledgeBase.map((kb, index) => (
+                        <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                          <div className="flex items-center gap-2">
+                            {kb.type === "url" && <Globe className="h-4 w-4" />}
+                            {kb.type === "github" && <Github className="h-4 w-4" />}
+                            {kb.type === "text" && <FileText className="h-4 w-4" />}
+                            <span className="text-sm">{kb.content.substring(0, 30)}...</span>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleRemoveKnowledgeBase(index)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Add Knowledge Source</Label>
+                  <div className="flex gap-2">
+                    <select
+                      value={newKnowledgeType}
+                      onChange={(e) => setNewKnowledgeType(e.target.value as any)}
+                      className="border rounded px-2 py-1 text-sm"
+                    >
+                      <option value="url">Website URL</option>
+                      <option value="github">GitHub Repository</option>
+                      <option value="text">Text Content</option>
+                    </select>
+                    <Input
+                      placeholder={
+                        newKnowledgeType === "url" 
+                          ? "Enter website URL" 
+                          : newKnowledgeType === "github" 
+                            ? "Enter GitHub repo URL" 
+                            : "Enter text content"
+                      }
+                      value={newKnowledgeContent}
+                      onChange={(e) => setNewKnowledgeContent(e.target.value)}
+                    />
+                    <Button onClick={handleAddKnowledgeBase}>Add</Button>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {newKnowledgeType === "url" 
+                      ? "The AI will crawl and index this website to answer questions."
+                      : newKnowledgeType === "github" 
+                        ? "The AI will read this GitHub repository to answer questions."
+                        : "The AI will use this text content to answer questions."}
+                  </p>
+                </div>
+              </div>
+            </TabsContent>
+            
+            {/* Database Tab */}
+            <TabsContent value="database" className="space-y-4">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="db-type">Database Type</Label>
+                  <select
+                    id="db-type"
+                    value={dbConfig.type}
+                    onChange={(e) => setDbConfig({...dbConfig, type: e.target.value})}
+                    className="w-full border rounded px-3 py-2"
+                  >
+                    <option value="firebase">Firebase</option>
+                    <option value="supabase">Supabase</option>
+                    <option value="mongodb">MongoDB</option>
+                  </select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="project-id">Project ID</Label>
+                  <Input
+                    id="project-id"
+                    placeholder="Enter project ID"
+                    value={dbConfig.projectId}
+                    onChange={(e) => setDbConfig({...dbConfig, projectId: e.target.value})}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="db-api-key">API Key</Label>
+                  <Input
+                    id="db-api-key"
+                    type="password"
+                    placeholder="Enter database API key"
+                    value={dbConfig.apiKey}
+                    onChange={(e) => setDbConfig({...dbConfig, apiKey: e.target.value})}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="db-url">Database URL</Label>
+                  <Input
+                    id="db-url"
+                    placeholder="Enter database URL"
+                    value={dbConfig.databaseURL}
+                    onChange={(e) => setDbConfig({...dbConfig, databaseURL: e.target.value})}
+                  />
+                </div>
+                
+                <p className="text-sm text-gray-500">
+                  Database configuration allows the AI to access and use your data. 
+                  All credentials are stored locally in your browser.
+                </p>
+              </div>
+              
+              <div className="flex justify-end">
+                <Button onClick={handleSaveDbConfig}>
+                  Save Database Configuration
+                </Button>
+              </div>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </div>

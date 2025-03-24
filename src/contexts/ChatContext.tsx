@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { ChatMessage, ChatOptions, ChatRole } from "@/types/chat";
 import { generateChatCompletion, processKnowledgeBase } from "@/utils/api";
@@ -94,12 +95,16 @@ export const ChatProvider: React.FC<{
             content: msg.content,
           }));
 
+        // Add a default system prompt that directs the AI to reference the knowledge base
+        let baseSystemPrompt = "Always reference relevant knowledge base information when answering questions. ";
         if (options.systemPrompt) {
-          apiMessages.unshift({
-            role: "system",
-            content: options.systemPrompt,
-          });
+          baseSystemPrompt += options.systemPrompt;
         }
+        
+        apiMessages.unshift({
+          role: "system",
+          content: baseSystemPrompt,
+        });
 
         apiMessages.push({
           role: "user",
@@ -107,14 +112,24 @@ export const ChatProvider: React.FC<{
         });
 
         let contextInfo = null;
+        let knowledgeBaseReference = "";
+        
+        // Process knowledge base if available
         if (options.knowledgeBase && options.knowledgeBase.length > 0) {
           contextInfo = await processKnowledgeBase(options.knowledgeBase, content);
           
           if (contextInfo) {
+            // Create a reference message about the knowledge base source
+            const sources = options.knowledgeBase.map(kb => kb.type).join(", ");
+            knowledgeBaseReference = `I'm answering based on information from ${sources} sources:\n\n`;
+            
+            // Add context to the last user message
             const lastIndex = apiMessages.length - 1;
             apiMessages[lastIndex].content = 
               `${content}\n\nAvailable context information:\n${contextInfo}`;
           }
+        } else {
+          knowledgeBaseReference = "I'm answering based on my general knowledge as no specific knowledge base is available.\n\n";
         }
 
         const responseContent = await generateChatCompletion(
@@ -123,10 +138,13 @@ export const ChatProvider: React.FC<{
           options.modelName
         );
 
+        // Prepend the knowledge base reference to the AI response
+        const enhancedResponse = knowledgeBaseReference + responseContent;
+
         const assistantMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: "assistant",
-          content: responseContent,
+          content: enhancedResponse,
           timestamp: new Date(),
         };
 
